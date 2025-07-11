@@ -3,26 +3,41 @@
 # Exit immediately if a command exits with a non-zero status.
 set -e
 
-# Step 1: Install Git LFS by downloading the static binary.
-echo "Downloading Git LFS binary..."
-curl -sS https://github.com/git-lfs/git-lfs/releases/download/v3.4.0/git-lfs-linux-amd64-v3.4.0.tar.gz -o /tmp/git-lfs.tar.gz
+LFS_VERSION="3.5.0" # Using v3.5.0 - you can check https://github.com/git-lfs/git-lfs/releases for the latest stable
+LFS_ARCH="linux-amd64"
+LFS_FILENAME="git-lfs-${LFS_ARCH}-v${LFS_VERSION}.tar.gz"
+LFS_URL="https://github.com/git-lfs/git-lfs/releases/download/v${LFS_VERSION}/${LFS_FILENAME}"
+LFS_EXTRACT_DIR="/tmp/git-lfs-extracted" # Directory where it will be extracted
 
-# Step 2: Extract the binary.
+echo "Downloading Git LFS binary v${LFS_VERSION}..."
+curl -L -sS "${LFS_URL}" -o "/tmp/${LFS_FILENAME}"
+
 echo "Extracting Git LFS binary..."
-tar -xzf /tmp/git-lfs.tar.gz -C /tmp
+mkdir -p "${LFS_EXTRACT_DIR}" # Create the directory if it doesn't exist
+tar -xzf "/tmp/${LFS_FILENAME}" -C "${LFS_EXTRACT_DIR}"
 
-# Step 3: Move the executable to a location in the system's PATH.
-echo "Installing Git LFS executable..."
-mv /tmp/git-lfs-3.4.0/git-lfs /usr/local/bin/git-lfs
+# Verify extraction
+if [ ! -f "${LFS_EXTRACT_DIR}/git-lfs-${LFS_VERSION}/git-lfs" ]; then
+  echo "Error: Git LFS executable not found after extraction. Check tarball content."
+  exit 1
+fi
 
-# Step 4: Clean up temporary files.
-echo "Cleaning up temporary files..."
-rm -rf /tmp/git-lfs*
+# Add the extracted binary to PATH for the current shell session
+export PATH="${LFS_EXTRACT_DIR}/git-lfs-${LFS_VERSION}:$PATH"
 
-# Step 5: Configure the LFS remote URL for the current build.
+# Step 1: Initialize Git LFS in the repository.
+# This sets up the necessary Git hooks and configuration locally for the build.
+echo "Initializing Git LFS..."
+git lfs install --skip-smudge --local # --local ensures it only affects this repo, --skip-smudge avoids immediate pull
+
+# Step 2: Configure the LFS remote URL explicitly.
 echo "Configuring LFS remote URL..."
 git config lfs.url https://github.com/Desmond09-spec/temigrapher.git/info/lfs
 
-# Step 6: Pull the Git LFS files.
+# Step 3: Pull the Git LFS files.
 echo "Pulling Git LFS files..."
 git lfs pull
+
+# Clean up temporary files
+echo "Cleaning up temporary files..."
+rm -rf "/tmp/${LFS_FILENAME}" "${LFS_EXTRACT_DIR}"
